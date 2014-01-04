@@ -1,3 +1,9 @@
+/*
+ * This program is placed into the public domain
+ * by its author, Ian Harvey.
+ * Note there is NO WARRANTY of any kind.
+ */
+ 
 #include "sha2_mini.h"
 
 #include <assert.h>
