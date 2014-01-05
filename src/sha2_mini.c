@@ -53,21 +53,10 @@ static void put_BE32(const uint32_t *words, uint8_t *bytes, unsigned nwords)
 static void SHA256Mini_compress(uint32_t *H, const uint8_t *msg)
 /* H is 8 words, msg is 64 bytes */
 {
-  uint32_t W[64];
+  uint32_t W[16];
   unsigned i;
   
   get_BE32(msg, W, 16);
-  
-  for (i=16 ; i < 64; i++)
-  {
-    uint32_t tmp, s0, s1;
-    
-    tmp = W[i-15];
-    s0 = ROR(tmp, 7) ^ ROR(tmp, 18) ^ (tmp >> 3);
-    tmp = W[i-2];
-    s1 = ROR(tmp, 17) ^ ROR(tmp, 19) ^ (tmp >> 10);
-    W[i] = W[i-16] + W[i-7] + s0 + s1;
-  }
   
   uint32_t a,b,c,d,e,f,g,h;
   
@@ -76,11 +65,24 @@ static void SHA256Mini_compress(uint32_t *H, const uint8_t *msg)
   
   for (i=0; i<64; i++)
   {
-    uint32_t temp1, temp2;
+    uint32_t temp1, temp2, W_i;
     
-    temp1 = ROR(e,6) ^ ROR(e,11) ^ ROR(e,25);
+    if ( i < 16 )
+      W_i = W[i];
+    else
+    {
+      temp1 = W[(i-15) & 15];
+      temp1 = ROR(temp1, 7) ^ ROR(temp1, 18) ^ (temp1 >> 3);
+
+      temp2 = W[(i-2) & 15];
+      temp2 = ROR(temp2, 17) ^ ROR(temp2, 19) ^ (temp2 >> 10);
+      W_i = W[i & 15] + W[(i-7) & 15] + temp1 + temp2;
+      W[i & 15] = W_i;
+    }
+    
+    temp1 = h + K[i] + W_i;
+    temp1 += ROR(e,6) ^ ROR(e,11) ^ ROR(e,25);
     temp1 += (e & f) ^ (~e & g);
-    temp1 += h + K[i] + W[i];
     
     temp2 = ROR(a,2) ^ ROR(a,13) ^ ROR(a,22);
     temp2 += (a & b) ^ (a & c) ^ (b & c);

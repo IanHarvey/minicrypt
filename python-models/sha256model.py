@@ -36,22 +36,24 @@ def sha256(msg):
     H = [ x for x in initialH ]
     blocks = padMsg(msg)
     for p in range(0, len(blocks), 64):
-        w = list(struct.unpack(">LLLLLLLLLLLLLLLL", blocks[p:p+64]))
-        for i in range(16,64):
-            w_15 = w[i-15]
-            s0 = ROR(w_15, 7) ^ ROR(w_15, 18) ^ (w_15 >> 3)
-            w_2 = w[i-2]
-            s1 = ROR(w_2, 17) ^ ROR(w_2, 19) ^ (w_2 >> 10)
-            w.append( add32(w[i-16], s0, w[i-7], s1) )
-  
-        assert(len(w)==64)
-              
+        w = list(struct.unpack(">LLLLLLLLLLLLLLLL", blocks[p:p+64]))          
         (a,b,c,d,e,f,g,h) = H
        
         for i in range(64):
+            if i < 16:
+                w_i = w[i]
+            else:
+                w_15 = w[(i-15) & 15]
+                s0 = ROR(w_15, 7) ^ ROR(w_15, 18) ^ (w_15 >> 3)
+                w_2 = w[(i-2) & 15]
+                s1 = ROR(w_2, 17) ^ ROR(w_2, 19) ^ (w_2 >> 10)
+                w_i = add32(w[i & 15], s0, w[(i-7)&15], s1)
+                w[i&15] = w_i
+            
+            print "w[",i,"] is", hex(w_i)
             S1 = ROR(e,6) ^ ROR(e,11) ^ ROR(e,25)
             ch = ( e & f ) ^ (not32(e) & g)
-            temp1 = add32(h, S1, ch, k[i], w[i])
+            temp1 = add32(h, S1, ch, k[i], w_i)
             S0 = ROR(a,2) ^ ROR(a,13) ^ ROR(a,22)
             maj = (a & b) ^ (a & c) ^ (b & c)
             temp2 = add32(S0, maj)
