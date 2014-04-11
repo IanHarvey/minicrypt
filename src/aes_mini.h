@@ -46,11 +46,11 @@ extern void AESMini_Init(AESMini_ctx *ctx, const uint8_t *key, int nkeybytes);
 #define AESMINI_256BIT_KEY	32
 
 /* Single ECB encrypt primitive. 'plain' and 'cipher' must be AESMINI_BLOCK_SIZE each */
-extern void AESMini_ECB_encrypt(AESMini_ctx *ctx, const uint8_t *plain, uint8_t *cipher);
+extern void AESMini_ECB_Encrypt(AESMini_ctx *ctx, const uint8_t *plain, uint8_t *cipher);
 
 /* Single ECB decrypt primitive. 'plain' and 'cipher' must be AESMINI_BLOCK_SIZE each */
 #ifndef AESMINI_ENCRYPT_ONLY
-extern void AESMini_ECB_decrypt(AESMini_ctx *ctx, const uint8_t *cipher, uint8_t *plain);
+extern void AESMini_ECB_Decrypt(AESMini_ctx *ctx, const uint8_t *cipher, uint8_t *plain);
 #endif
 
 #endif

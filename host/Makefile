@@ -26,6 +26,9 @@ aes_mini_enc128_test: aes_mini.c aes_mini.h
 	$(CC) $(CFLAGS) -DAESMINI_ENCRYPT_ONLY -DAESMINI_128BIT_ONLY -DTEST_HARNESS -o $@ $<
 TARGETS += aes_mini_enc128_test
 
+aesccm_mini_test: aesccm_mini.c aes_mini.o
+	$(CC) $(CFLAGS) -DTEST_HARNESS -o $@ $^
+TARGETS += aesccm_mini_test
 
 # -------------------------------------
 
