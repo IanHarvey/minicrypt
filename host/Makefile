@@ -46,3 +46,4 @@ test: $(TARGETS)
 	./aes_mini_test
 	./aes_mini_enc_test
 	./aes_mini_enc128_test
+	./aesccm_mini_test

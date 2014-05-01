@@ -7,11 +7,15 @@
  * Note there is NO WARRANTY.
  *
  */
-#ifndef _AESCCM_H
-#define _AESCCM_H
+#ifndef AESCCM_MINI_H
+#define AESCCM_MINI_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include "minicrypt.h"
 #include "aes_mini.h"
-#include <stddef.h>
 
 typedef struct
 {
@@ -21,22 +25,31 @@ typedef struct
 }
   AESCCMMini_ctx;
   
-int AESCCMMini_Init(AESCCMMini_ctx *ctx, const uint8_t *key, int keysize, int L, int M);
+extern MCResult AESCCMMini_Init(AESCCMMini_ctx *ctx, const uint8_t *key, int keysize, int L, int M);
 
-int AESCCMMini_Encrypt(AESCCMMini_ctx *ctx,
-    const uint8_t *nonce, size_t nonceLen,
+extern MCResult AESCCMMini_EncryptLength(AESCCMMini_ctx *ctx, size_t plainLen, size_t *cipherLen);
+/* Get output message size for encryption of given plaintext */
+
+extern MCResult AESCCMMini_DecryptLength(AESCCMMini_ctx *ctx, size_t cipherLen, size_t *plainLen);
+/* Get size of decrypted plaintext given ciphertext size */
+
+extern MCResult AESCCMMini_Encrypt(AESCCMMini_ctx *ctx,
     const uint8_t *plain, size_t plainLen,
-    uint8_t *cipher, size_t *cipherLenInOut);
+    uint8_t *cipher, size_t cipherLen);
+/* cipherLen must be value returned from _EncryptLength.
+   NB. Will call back MC_GetRandom()
+ */
 
-int AESCCMMini_Decrypt(AESCCMMini_ctx *ctx,
+extern MCResult AESCCMMini_Decrypt(AESCCMMini_ctx *ctx,
     const uint8_t *cipher, size_t cipherLen,
-    uint8_t *plain, size_t *plainLenInOut);
+    uint8_t *plain, size_t plainLen);
+/* plainLen must be value returned from _DecryptLength */
 
-#define AESCCMMINI_OK              0
-#define AESCCMMINI_INVALID_PARAMS  (-1)
-#define AESCCMMINI_BAD_NONCE_SIZE  (-2)
-#define AESCCMMINI_BUF_TOO_SHORT   (-3)
-#define AESCCMMINI_VERIFY_FAILED   (-4)
 
+
+#ifdef __cplusplus
+}
 #endif
+
+#endif /* AESCCM_MINI_H */
 

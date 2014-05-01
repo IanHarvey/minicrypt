@@ -12,7 +12,11 @@
  *  AESMINI_ENCRYPT_ONLY to remove support for the AES decryption primitive
  */
 
-#include <stdint.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#include "minicrypt.h"
 
 #define AESMINI_BLOCK_SIZE 16
 
@@ -51,6 +55,10 @@ extern void AESMini_ECB_Encrypt(AESMini_ctx *ctx, const uint8_t *plain, uint8_t 
 /* Single ECB decrypt primitive. 'plain' and 'cipher' must be AESMINI_BLOCK_SIZE each */
 #ifndef AESMINI_ENCRYPT_ONLY
 extern void AESMini_ECB_Decrypt(AESMini_ctx *ctx, const uint8_t *cipher, uint8_t *plain);
+#endif
+
+#ifdef __cplusplus
+}
 #endif
 
 #endif

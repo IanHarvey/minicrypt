@@ -12,25 +12,50 @@
 
 /* ---------------------------------------------- */
   
-int AESCCMMini_Init(AESCCMMini_ctx *ctx, const uint8_t *key, int ksz, int L, int M)
+MCResult AESCCMMini_Init(AESCCMMini_ctx *ctx, const uint8_t *key, int ksz, int L, int M)
 {
   if (  M < 4 || M > 16 || (M % 1) != 0 
      || L < 2 || L > 8
      || ! (ksz==AESMINI_128BIT_KEY || ksz==AESMINI_192BIT_KEY || ksz==AESMINI_256BIT_KEY)
      )
-    return AESCCMMINI_INVALID_PARAMS;
+    return MC_BAD_PARAMS;
   
   AESMini_Init(&ctx->actx, key, ksz);
   ctx->L = L;
   ctx->M = M; 
-  return AESCCMMINI_OK;
+  return MC_OK;
 }
 
 /* ---------------------------------------------- */
 
-static size_t getNonceLen( AESCCMMini_ctx *ctx )
+#define NONCE_SZ(ctx) (15-(ctx)->L)
+#define TAG_SZ(ctx)   ((ctx)->M)
+
+MCResult AESCCMMini_EncryptLength(AESCCMMini_ctx *ctx, size_t plainLen, size_t *cipherLen)
 {
-  return 15 - ctx->L;
+  size_t extra = NONCE_SZ(ctx) + TAG_SZ(ctx);
+  size_t cLen = plainLen + extra;
+  if (cLen < plainLen) // wrapped - plainLen is invalid
+  {
+    *cipherLen = 0;
+    return MC_BAD_LENGTH;
+  }
+  *cipherLen = cLen;
+  return MC_OK;
+}
+
+/* ---------------------------------------------- */
+
+MCResult AESCCMMini_DecryptLength(AESCCMMini_ctx *ctx, size_t cipherLen, size_t *plainLen)
+{
+  size_t extra = NONCE_SZ(ctx) + TAG_SZ(ctx);
+  if (cipherLen < extra)
+  {
+    *plainLen = 0;
+    return MC_BAD_LENGTH;
+  }
+  *plainLen = cipherLen - extra;
+  return MC_OK;
 }
 
 /* ---------------------------------------------- */
@@ -49,179 +74,131 @@ static int encodeBE( AESCCMMini_ctx *ctx, size_t val, uint8_t *buf16 )
 }
 
 /* ---------------------------------------------- */
- 
-static int setupCbcAndCounter(
-    AESCCMMini_ctx *ctx,
-    const uint8_t *nonce, size_t nonceLen,
-    size_t plainLen,
-    uint8_t *Xi,
-    uint8_t *Ai )
+
+static MCResult AESCCM_common(AESCCMMini_ctx *ctx,
+     const uint8_t *nonce,
+     const uint8_t *in, uint8_t *out, size_t msgLen,
+     uint8_t *tag,
+     int isDecrypt)
 {
-  size_t i;
-  /* CBCMAC setup into Xi */
+  uint8_t Xi[AESMINI_BLOCK_SIZE];
+  uint8_t Ai[AESMINI_BLOCK_SIZE];
+  uint8_t Si[AESMINI_BLOCK_SIZE];
+  unsigned i; 
+  size_t idx;
+  const uint8_t *plain = isDecrypt ? out : in;
+   
+  /* CBCMAC setup */
   Xi[0] = (ctx->L-1) | ((ctx->M-2) << 2);
-  for (i=0; i<nonceLen; i++)
+  for (i=0; i<NONCE_SZ(ctx); i++)
     Xi[i+1] = nonce[i];
-  if ( !encodeBE(ctx, plainLen, Xi) )
-    return 0;
+  if ( !encodeBE(ctx, msgLen, Xi) )
+    return MC_BAD_PARAMS;
 
   AESMini_ECB_Encrypt(&ctx->actx, Xi, Xi);
 
   /* Counter block setup */
   Ai[0] = (ctx->L-1);
-  for (i=0; i<nonceLen; i++)
+  for (i=0; i<NONCE_SZ(ctx); i++)
     Ai[i+1] = nonce[i];
     
-  return 1;
-}
-
-/* ---------------------------------------------- */
- 
-int AESCCMMini_Encrypt(AESCCMMini_ctx *ctx,
-    const uint8_t *nonce, size_t nonceLen,
-    const uint8_t *plain, size_t plainLen,
-    uint8_t *cipher, size_t *cipherLenInOut)
-{
-  size_t cipherLen;
-  uint8_t Xi[AESMINI_BLOCK_SIZE];
-  uint8_t Ai[AESMINI_BLOCK_SIZE];
-  uint8_t Si[AESMINI_BLOCK_SIZE];
-  size_t i, idx;
-
-  if ( cipher==NULL )
-  {
-    /* Simple length query */
-    *cipherLenInOut = getNonceLen(ctx) + plainLen + ctx->M;
-    return AESCCMMINI_OK;
-  }
-  
-  /* Check lengths */
-  
-  if ( nonceLen != getNonceLen(ctx) )
-    return AESCCMMINI_BAD_NONCE_SIZE;
-    
-  cipherLen = nonceLen + plainLen + ctx->M;
-  if ( cipherLen < plainLen ) /* Paranoia: deal with overflow */
-    return AESCCMMINI_INVALID_PARAMS;
-  
-  if ( *cipherLenInOut < cipherLen )
-    return AESCCMMINI_BUF_TOO_SHORT;
-
-  /* Set up */
-
-  if ( !setupCbcAndCounter(ctx, nonce, nonceLen, plainLen, Xi, Ai) )
-    return AESCCMMINI_INVALID_PARAMS;
-    
-  /* Emit nonce */
-  for (i=0; i<nonceLen; i++)
-    *cipher++ = nonce[i];
-  
   /* Process the plaintext */
   idx=1;
-  while ( plainLen > 0 )
+  while ( msgLen > 0 )
   {
-    size_t n = plainLen > AESMINI_BLOCK_SIZE ? AESMINI_BLOCK_SIZE : plainLen;
+    size_t n = msgLen > AESMINI_BLOCK_SIZE ? AESMINI_BLOCK_SIZE : msgLen;
     
     encodeBE(ctx, idx, Ai);
     AESMini_ECB_Encrypt(&ctx->actx, Ai, Si);
     
     for (i=0; i<n; i++)
     {
+      out[i] = in[i] ^ Si[i];
       Xi[i] ^= plain[i];
-      *cipher++ = plain[i] ^ Si[i];
     }
-    plain += n;
-    plainLen -= n;
-    idx += 1;
     AESMini_ECB_Encrypt(&ctx->actx, Xi, Xi);
+
+    in += n;
+    out += n;
+    plain += n;
+    msgLen -= n;
+    idx += 1;
   }
   
   /* Emit the tag */
   encodeBE(ctx, 0, Ai);
   AESMini_ECB_Encrypt(&ctx->actx, Ai, Si); /* Now S_0 */
-  for (i=0; i<ctx->M; i++)
-    *cipher++ = Xi[i] ^ Si[i];
+  for (i=0; i<TAG_SZ(ctx); i++)
+    tag[i] = Xi[i] ^ Si[i];
  
-  *cipherLenInOut = cipherLen;
-  return AESCCMMINI_OK;
+  return MC_OK;
 }
+ 
+/* ---------------------------------------------- */
+ 
+MCResult AESCCMMini_Encrypt(AESCCMMini_ctx *ctx,
+    const uint8_t *plain, size_t plainLen,
+    uint8_t *cipher, size_t cipherLen)
+{
+  size_t tmp;
 
+  if ( AESCCMMini_EncryptLength(ctx, plainLen, &tmp) != MC_OK  ||
+       tmp != cipherLen
+     )
+  {
+    return MC_BAD_LENGTH;
+  }
+   
+  /* Get a nonce at start of ciphertext */
+
+  tmp = NONCE_SZ(ctx);
+  if ( MC_GetRandom(cipher, tmp) != MC_OK )
+    return MC_RANDOM_FAIL;
+    
+  return AESCCM_common(ctx, 
+      cipher, /* Nonce */
+      plain, cipher+tmp, plainLen,
+      cipher+tmp+plainLen, /* Tag */
+      0);
+}
 /* ---------------------------------------------- */
 
-int AESCCMMini_Decrypt(AESCCMMini_ctx *ctx,
+MCResult AESCCMMini_Decrypt(AESCCMMini_ctx *ctx,
     const uint8_t *cipher, size_t cipherLen,
-    uint8_t *plain, size_t *plainLenInOut)
+    uint8_t *plain, size_t plainLen)
 {
-  size_t plainLen;
-  uint8_t Xi[AESMINI_BLOCK_SIZE];
-  uint8_t Ai[AESMINI_BLOCK_SIZE];
-  uint8_t Si[AESMINI_BLOCK_SIZE];
-  size_t i, idx;
+  size_t tmp;
   uint8_t checkByte;
-  size_t nonceLen = getNonceLen(ctx);
+  uint8_t tag[AESMINI_BLOCK_SIZE];
+  MCResult rc;
+  unsigned i;
   
-  /* Check various lengths */
-  if ( cipherLen < nonceLen + ctx->M )
-    return AESCCMMINI_INVALID_PARAMS;
-  
-  plainLen = cipherLen - nonceLen - ctx->M;
-  if ( plain==NULL )
+  if ( AESCCMMini_DecryptLength(ctx, cipherLen, &tmp) != MC_OK  ||
+       tmp != plainLen
+     )
   {
-    /* Simple length check */
-    *plainLenInOut = plainLen;
-    return AESCCMMINI_OK;
-  }
-  else if ( *plainLenInOut < plainLen )
-    return AESCCMMINI_BUF_TOO_SHORT;
-    
-  /* Set up: nonce is at start of ciphertext */
-  
-  if ( !setupCbcAndCounter(ctx, cipher, nonceLen, plainLen, Xi, Ai) )
-    return AESCCMMINI_INVALID_PARAMS;
-
-  cipher += nonceLen;
-    
-  /* Process the ciphertext */
-  idx=1;
-  cipherLen = plainLen;
-  while ( cipherLen > 0 )
-  {
-    size_t n = cipherLen > AESMINI_BLOCK_SIZE ? AESMINI_BLOCK_SIZE : cipherLen;
-    
-    encodeBE(ctx, idx, Ai);
-    AESMini_ECB_Encrypt(&ctx->actx, Ai, Si);
-    
-    for (i=0; i<n; i++)
-    { 
-      uint8_t db = (*cipher++) ^ Si[i];
-      Xi[i] ^= db;
-      *plain++ = db;
-    }
-    cipherLen -= n;
-    idx += 1;
-    AESMini_ECB_Encrypt(&ctx->actx, Xi, Xi);
+    return MC_BAD_LENGTH;
   }
   
+  rc = AESCCM_common(ctx,
+      cipher, /* Nonce */
+      cipher + NONCE_SZ(ctx), plain, plainLen,
+      tag,
+      1);
+      
+  if ( rc != MC_OK )
+    return rc;
+    
   /* Check the tag */
-  encodeBE(ctx, 0, Ai);
-  AESMini_ECB_Encrypt(&ctx->actx, Ai, Si); /* Now S_0 */
+  cipher = cipher + NONCE_SZ(ctx) + plainLen;
   checkByte = 0;
-  
-  for (i=0; i<ctx->M; i++)
+  for (i=0; i<TAG_SZ(ctx); i++)
   {
-    checkByte |= (*cipher++ ^ Xi[i] ^ Si[i]);
+    checkByte |= (cipher[i] ^ tag[i]);
     /* Should of course be 0 */
   }
-  
-  if ( checkByte != 0 )
-  {
-    /* Make an effort to stop the caller using the faulty plaintext */
-    *plainLenInOut = 0;
-    return AESCCMMINI_VERIFY_FAILED;
-  }
-  
-  *plainLenInOut = plainLen;
-  return AESCCMMINI_OK;
+
+  return (checkByte == 0) ? MC_OK : MC_VERIFY_FAILED;
 }
 
 
@@ -232,12 +209,19 @@ int AESCCMMini_Decrypt(AESCCMMini_ctx *ctx,
 #include <stdio.h>
 #include <string.h>
 
-#define ASSERT_EXPR(a) assert_expr(#a, a, 999)
+#define ASSERT_EXPR(a) assert_expr(#a, a, __LINE__)
+
+static int total=0;
+static int errs=0;
 
 void assert_expr(const char *what, int ok, int line)
 {
   if ( !ok )
+  {
     printf("FAIL %s @ line %d\n", what, line);
+    errs++;
+  }
+  total ++;
 }
     
 typedef struct
@@ -436,6 +420,32 @@ static int checkdata(const uint8_t *what, const uint8_t *got, size_t sz)
   return (memcmp(what, got, sz)==0);
 }
 
+static const uint8_t *randBytes;
+static size_t randRemain;
+
+MCResult MC_GetRandom(uint8_t *buffer, size_t length)
+{
+  while ( length-- > 0 )
+  {
+    if (randRemain < 1)
+      return MC_RANDOM_FAIL;
+    *buffer++ = *randBytes++;
+    randRemain -= 1;
+  }
+  return MC_OK;
+}
+
+static void rng_setup(const AESCCM_KAT *kat)
+{
+  randBytes  = kat->nonce.data;
+  randRemain = kat->nonce.len;
+}
+
+static void rng_check(const AESCCM_KAT *kat)
+{
+  ASSERT_EXPR( randRemain==0 );
+}
+
 static void test_aesccm_enc_kats(void)
 {
   AESCCMMini_ctx ctx;
@@ -446,26 +456,25 @@ static void test_aesccm_enc_kats(void)
   for (i=0; i<aesccm_kats_count; i++)
   {
     const AESCCM_KAT *kat = &aesccm_kats[i];
-    printf("test %d L=%d M=%d ptlen=%u\n", i, kat->L, kat->M, (unsigned)kat->pt.len);
+    //printf("test %d L=%d M=%d ptlen=%u\n", i, kat->L, kat->M, (unsigned)kat->pt.len);
 
     rc=AESCCMMini_Init(&ctx, kat->k.data, kat->k.len, kat->L, kat->M);
-    ASSERT_EXPR(rc==AESCCMMINI_OK);
+    ASSERT_EXPR(rc==MC_OK);
 
     /* Do length check */
     cipher.len = 0xDEADBEEF;
-    rc=AESCCMMini_Encrypt(&ctx, NULL, 0, NULL, kat->pt.len, NULL, &cipher.len);
-    ASSERT_EXPR(rc==AESCCMMINI_OK);
+    rc=AESCCMMini_EncryptLength(&ctx, kat->pt.len, &cipher.len);
+    ASSERT_EXPR(rc==MC_OK);
     ASSERT_EXPR(cipher.len == kat->ct.len);
     
     /* Now do the encryption */
-    cipher.len = sizeof(cipher.data);    
+    rng_setup(kat);
     rc=AESCCMMini_Encrypt(&ctx,
-            kat->nonce.data, kat->nonce.len,
             kat->pt.data, kat->pt.len,
-            cipher.data, &cipher.len);
-    ASSERT_EXPR(rc==AESCCMMINI_OK);
-
-    ASSERT_EXPR(cipher.len==kat->ct.len);
+            cipher.data, cipher.len);
+    ASSERT_EXPR(rc==MC_OK);
+    rng_check(kat);
+    
     ASSERT_EXPR(checkdata(kat->ct.data, cipher.data, cipher.len));
   }    
 }
@@ -480,25 +489,23 @@ static void test_aesccm_dec_kats(void)
   for (i=0; i<aesccm_kats_count; i++)
   {
     const AESCCM_KAT *kat = &aesccm_kats[i];
-    printf("Dec test %d L=%d M=%d ptlen=%u\n", i, kat->L, kat->M, (unsigned)kat->pt.len);
+    //printf("Dec test %d L=%d M=%d ptlen=%u\n", i, kat->L, kat->M, (unsigned)kat->pt.len);
         
     rc=AESCCMMini_Init(&ctx, kat->k.data, kat->k.len, kat->L, kat->M);
-    ASSERT_EXPR(rc==AESCCMMINI_OK);
+    ASSERT_EXPR(rc==MC_OK);
 
     /* Length query */
     plain.len = 0xF00DCAFE;
-    rc=AESCCMMini_Decrypt(&ctx, NULL, kat->ct.len, NULL, &plain.len);
-    ASSERT_EXPR(rc==AESCCMMINI_OK);
+    rc=AESCCMMini_DecryptLength(&ctx, kat->ct.len, &plain.len);
+    ASSERT_EXPR(rc==MC_OK);
     ASSERT_EXPR(plain.len == kat->pt.len);
     
     /* Do the decrypt */
-    plain.len = sizeof(plain.data);
     rc=AESCCMMini_Decrypt(&ctx,
             kat->ct.data, kat->ct.len,
-            plain.data, &plain.len);
-    ASSERT_EXPR(rc==AESCCMMINI_OK);
+            plain.data, plain.len);
+    ASSERT_EXPR(rc==MC_OK);
 
-    ASSERT_EXPR(plain.len==kat->pt.len);
     ASSERT_EXPR(checkdata(kat->pt.data, plain.data, plain.len));
     
     /* Check a bogus decrypt */
@@ -524,12 +531,10 @@ static void test_aesccm_dec_kats(void)
             bogusCt.data[kat->ct.len - 1] ^= 0x80;
             break;
       }
-      plain.len = sizeof(plain.data);
       rc=AESCCMMini_Decrypt(&ctx,
             bogusCt.data, bogusCt.len,
-            plain.data, &plain.len);
-      ASSERT_EXPR(rc==AESCCMMINI_VERIFY_FAILED);
-      ASSERT_EXPR(plain.len==0);
+            plain.data, plain.len);
+      ASSERT_EXPR(rc==MC_VERIFY_FAILED);
     }
   }    
 }
@@ -538,7 +543,8 @@ int main()
 {
   test_aesccm_enc_kats();
   test_aesccm_dec_kats();
-  return 0;
+  printf("%d errors out of %d\n", errs, total);
+  return (errs > 0) ? 255 : 0;
 }
 
 #endif
