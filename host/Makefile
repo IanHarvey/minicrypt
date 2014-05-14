@@ -30,6 +30,32 @@ aesccm_mini_test: aesccm_mini.c aes_mini.o
 	$(CC) $(CFLAGS) -DTEST_HARNESS -o $@ $^
 TARGETS += aesccm_mini_test
 
+mpiadd_mini_test: mpiadd_mini.c
+	$(CC) $(CFLAGS) -DTEST_HARNESS -o $@ $^
+TARGETS += mpiadd_mini_test
+
+mpisub_mini_test: mpisub_mini.c
+	$(CC) $(CFLAGS) -DTEST_HARNESS -o $@ $^
+TARGETS += mpisub_mini_test
+
+mpimul_mini_test: mpimul_mini.c
+	$(CC) $(CFLAGS) -DTEST_HARNESS -o $@ $^
+TARGETS += mpimul_mini_test
+
+MPI_OBJS= mpiadd_mini.o mpisub_mini.o mpimul_mini.o mpiutil_mini.o f25519util_mini.o
+
+f25519add_mini_test: f25519add_mini.c $(MPI_OBJS)
+	$(CC) $(CFLAGS) -DTEST_HARNESS -o $@ $^
+TARGETS += f25519add_mini_test
+
+f25519sub_mini_test: f25519sub_mini.c $(MPI_OBJS)
+	$(CC) $(CFLAGS) -DTEST_HARNESS -o $@ $^
+TARGETS += f25519sub_mini_test
+
+f25519mul_mini_test: f25519mul_mini.c $(MPI_OBJS)
+	$(CC) $(CFLAGS) -DTEST_HARNESS -o $@ $^
+TARGETS += f25519mul_mini_test
+
 # -------------------------------------
 
 all: $(TARGETS)
@@ -47,3 +73,10 @@ test: $(TARGETS)
 	./aes_mini_enc_test
 	./aes_mini_enc128_test
 	./aesccm_mini_test
+	./mpimul_mini_test
+	./mpiadd_mini_test
+	./mpisub_mini_test
+	./f25519add_mini_test
+	./f25519sub_mini_test
+	./f25519mul_mini_test
+

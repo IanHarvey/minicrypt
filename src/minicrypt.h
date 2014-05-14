@@ -25,4 +25,5 @@ typedef int MCResult;
 /* Random generation callback: must be supplied by user for certain algorithms */
 extern MCResult MC_GetRandom(uint8_t *buffer, size_t length);
 
+
 #endif
