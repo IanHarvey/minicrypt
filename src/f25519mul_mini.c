@@ -54,10 +54,22 @@ static void mul_reduce_approx(uint32_t *dst, uint32_t *src)
 
 void F25519_mul3_mini(F25519_Mini *res, const F25519_Mini *s1, const F25519_Mini *s2)
 {
-    ULong_Mini mr;
-    mpimul_mini(&mr, s1, s2);
-    mul_reduce_approx(res->digits, mr.digits);
-    F25519_reduce_mini_(res);
+  ULong_Mini mr;
+  mpimul_mini(&mr, s1, s2);
+  mul_reduce_approx(res->digits, mr.digits);
+  F25519_reduce_mini_(res);
+}
+
+void F25519_sqr_mini(F25519_Mini *res, const F25519_Mini *s)
+{
+  F25519_mul3_mini(res, s, s);
+}
+
+void F25519_mulK_mini(F25519_Mini *res, const F25519_Mini *s1, uint32_t s2)
+{
+  UInt_Mini s2l;
+  F25519_setK_mini(&s2l, s2);
+  F25519_mul3_mini(res, s1, &s2l);
 }
 
 /* Test harness ======================================================= */

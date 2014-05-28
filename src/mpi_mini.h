@@ -67,6 +67,9 @@ extern MCResult F25519_set_mini(F25519_Mini *res, const uint8_t *bytes, size_t l
 /* Sets a field element from a byte-block message, in
  * little-endian. 'len' must be exactly F25519MINI_MSGSIZE. */
 
+extern void F25519_setK_mini(F25519_Mini *res, uint32_t n);
+/* Sets a field element to a 1-word value */
+
 extern MCResult F25519_get_mini(uint8_t *bytes, size_t len, const F25519_Mini *s);
 /* Writes a field element as a byte-block message. len should be F25519MINI_MSGSIZE */
 
@@ -87,6 +90,9 @@ extern void F25519_mul3_mini(F25519_Mini *res, const F25519_Mini *s1, const F255
 
 extern void F25519_sqr_mini(F25519_Mini *res, const F25519_Mini *s);
 /* Does *res = *s x *s in field arithmetic. Operands are allowed to be the same */
+
+extern void F25519_mulK_mini(F25519_Mini *res, const F25519_Mini *s1, uint32_t s2);
+/* Does *res = *s1 x s2 in field arithmetic, where s2 is a small integer */
 
 
 /* Internal API
