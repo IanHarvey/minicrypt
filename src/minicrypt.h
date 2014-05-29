@@ -7,8 +7,8 @@
  * Note there is NO WARRANTY.
  *
  */
-#ifndef _MINICRYPT_H
-#define _MINICRYPT_H
+#ifndef MINICRYPT_H
+#define MINICRYPT_H
 
 #include <stdint.h>
 #include <stddef.h>

@@ -8,7 +8,7 @@
  */
 
 #define MPIMINI_INTERNAL_API
-#include "mpi_mini.h"
+#include "f25519_mini.h"
 
 const UInt_Mini F25519_P_mini_ = 
 {

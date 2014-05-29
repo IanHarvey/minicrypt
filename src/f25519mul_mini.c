@@ -8,7 +8,7 @@
  */
 
 #define MPIMINI_INTERNAL_API
-#include "mpi_mini.h"
+#include "f25519_mini.h"
 
 
 static void mul_reduce_approx(uint32_t *dst, uint32_t *src)

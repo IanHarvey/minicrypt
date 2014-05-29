@@ -8,17 +8,7 @@
  */
 
 #define MPIMINI_INTERNAL_API
-#include "mpi_mini.h"
-
-#include <stdio.h>
-typedef struct
-{
-  uint8_t bytes[F25519MINI_MSGSIZE];
-}
-  Curve25519Msg_Mini;
-
-extern MCResult Curve25519_mini(Curve25519Msg_Mini *res, const Curve25519Msg_Mini *a,
-	const Curve25519Msg_Mini *P );
+#include "curve25519_mini.h"
 
 /* ------------------ */
 

@@ -8,7 +8,7 @@
  */
 
 #define MPIMINI_INTERNAL_API
-#include "mpi_mini.h"
+#include "f25519_mini.h"
 
 void F25519_sub3_mini(F25519_Mini *res, const F25519_Mini *s1, const F25519_Mini *s2)
 {
