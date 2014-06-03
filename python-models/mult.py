@@ -1,32 +1,35 @@
 
 
-NDIGITS = 8
-MASK = 0xFFFFFFFF
+NDIGITS = 9
+MASK = 0x1FFFFFFF
+NBITS = 29
 
 def mul256_rs( wordX, wordY ):
     res = [0] * (NDIGITS * 2)
     r64 = 0
     for r in range(0, NDIGITS*2-1):
-        sX = r if (r < NDIGITS) else NDIGITS-1
-        sY = 0 if (r < NDIGITS) else (r-NDIGITS+1)
-        print "Result Pos", r
-        while sX >= 0 and sY < NDIGITS:
-            print (sX,sY), '->', (sX + sY)
+        if r < NDIGITS:
+          sX = r
+          sY = 0
+        else:
+          sX = NDIGITS-1
+          sY = (r-NDIGITS+1)
+        for i in range(sX-sY+1):
             r64 += wordX[sX] * wordY[sY]
             sX -= 1
             sY += 1
         res[r] = r64 & MASK
-        r64 = (r64 >> 32)
-    res[NDIGITS*2-1] = r64
+        r64 = (r64 >> NBITS)
     assert(r64 <= MASK)
+    res[NDIGITS*2-1] = r64
     return res 
 
 def mul(x,y):
-    wX = [ (x >> i) & 0xFFFFFFFF for i in range(0, NDIGITS*32, 32) ]
-    wY = [ (y >> i) & 0xFFFFFFFF for i in range(0, NDIGITS*32, 32) ]
+    wX = [ (x >> i) & MASK for i in range(0, 255, NBITS) ]
+    wY = [ (y >> i) & MASK for i in range(0, 255, NBITS) ]
     wR = mul256_rs(wX, wY)
         
-    return sum([ (wR[i] << (i*32)) for i in range(0, NDIGITS*2) ])
+    return sum([ (wR[i] << (i*NBITS)) for i in range(len(wR)) ])
     
 tstlist = [ 0, 1, 0x80000000, 0xFFFFFFFF, (1 << 64)-1, (1 << 64),
 		(1<<128)-1, (1<<256)-1 ]
