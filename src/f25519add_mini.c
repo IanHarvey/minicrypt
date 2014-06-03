@@ -12,7 +12,15 @@
 
 void F25519_add3_mini(F25519_Mini *res, const F25519_Mini *s1, const F25519_Mini *s2)
 {
-    mpiadd_mini(res, s1, s2);
+    int i;
+    int32_t d=0;
+    for (i=0; i<F25519MINI_DIGITS-1; i++)
+    {
+      d += s1->digits[i] + s2->digits[i];
+      res->digits[i] = d & F25519MINI_BITMASK;
+      d >>= F25519MINI_BITS;
+    }
+    res->digits[i] = d + s1->digits[i] + s2->digits[i];
     F25519_reduce_mini_(res);
 }
 

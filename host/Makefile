@@ -48,7 +48,7 @@ f25519add_mini_test: f25519add_mini.c f25519util_mini.o $(MPI_OBJS)
 	$(CC) $(CFLAGS) -DTEST_HARNESS -o $@ $^
 TARGETS += f25519add_mini_test
 
-f25519sub_mini_test: f25519sub_mini.c f25519util_mini.o $(MPI_OBJS)
+f25519sub_mini_test: f25519sub_mini.c f25519add_mini.o f25519util_mini.o $(MPI_OBJS)
 	$(CC) $(CFLAGS) -DTEST_HARNESS -o $@ $^
 TARGETS += f25519sub_mini_test
 

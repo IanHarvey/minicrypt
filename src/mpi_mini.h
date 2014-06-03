@@ -64,16 +64,10 @@ extern void mpisetval_mini( UInt_Mini *res, uint32_t val);
  */
 #ifdef MPIMINI_INTERNAL_API
 
-extern const UInt_Mini F25519_P_mini_; /* 2^255-19 */
-
 extern uint32_t mpi_mulrow_mini_ ( uint32_t *dst,  uint32_t sA, const uint32_t *srcB);
 /* Multiplies a row srcB[0..DIGITS-1] by word sA, and adds it into dst[0..DIGITS]
  * Returns the carry out of the top digit (i.e. will need to be added into dst[DIGITS+1]).
  */ 
-    
-extern void F25519_reduce_mini_ (UInt_Mini *res);
-/* Reduces value mod 2^255-19; current implementation is by repeated subtraction. */
-
 
 #endif
 

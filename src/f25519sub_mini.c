@@ -12,12 +12,10 @@
 
 void F25519_sub3_mini(F25519_Mini *res, const F25519_Mini *s1, const F25519_Mini *s2)
 {
-    UInt_Mini minus_s2;
-    mpisub_mini(&minus_s2, &F25519_P_mini_, s2);
-    // NB - s2 may be 0, in which case negS2 won't be a valid field element.
-    //    
-    mpiadd_mini(res, s1, &minus_s2);
-    F25519_reduce_mini_(res);
+  F25519_Mini minusS2;
+  
+  F25519_sub_core_mini_(&minusS2, &F25519_P_mini_, s2);
+  F25519_add3_mini(res, s1, &minusS2);
 }
 
 /* Test harness ======================================================= */

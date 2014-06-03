@@ -10,7 +10,7 @@
 #define MPIMINI_INTERNAL_API
 #include "f25519_mini.h"
 
-
+#if 0
 static void mul_reduce_approx(uint32_t *dst, uint32_t *src)
 // dst is 8 words long
 // src is 16 words long
@@ -48,16 +48,15 @@ static void mul_reduce_approx(uint32_t *dst, uint32_t *src)
      dst[i] = src[i];
 }
 
-#if MPIMINI_DIGITS != 8
-#error "F25519_mul3_mini assumes MPIMINI_DIGITS==8"
 #endif
 
 void F25519_mul3_mini(F25519_Mini *res, const F25519_Mini *s1, const F25519_Mini *s2)
 {
-  ULong_Mini mr;
-  mpimul_mini(&mr, s1, s2);
-  mul_reduce_approx(res->digits, mr.digits);
-  F25519_reduce_mini_(res);
+  // TODO
+  //ULong_Mini mr;
+  //mpimul_mini(&mr, s1, s2);
+  //mul_reduce_approx(res->digits, mr.digits);
+  //F25519_reduce_mini_(res);
 }
 
 void F25519_sqr_mini(F25519_Mini *res, const F25519_Mini *s)
@@ -67,7 +66,7 @@ void F25519_sqr_mini(F25519_Mini *res, const F25519_Mini *s)
 
 void F25519_mulK_mini(F25519_Mini *res, const F25519_Mini *s1, uint32_t s2)
 {
-  UInt_Mini s2l;
+  F25519_Mini s2l;
   F25519_setK_mini(&s2l, s2);
   F25519_mul3_mini(res, s1, &s2l);
 }

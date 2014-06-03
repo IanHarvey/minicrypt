@@ -167,7 +167,24 @@ F25519_elements = [
     F25519-1,
 ]
 
-class F25519AddTestVectors(TestVector):
+class F25519TestVector(TestVector):
+    def __init__(self):
+        pass
+        
+
+    @staticmethod
+    def toWords(v):
+        return [ (v >> i) & 0x1FFFFFFF for i in range(0,255,29) ]
+
+    @staticmethod
+    def toC(val):
+        return "{ {" + (",".join(["0x%08X" % w for w in F25519TestVector.toWords(val) ]) ) + "} }"
+
+    def convert(self, tv):
+        (inA, inB, res) = [ self.toC(val) for val in tv ]
+        return self.toStruct([inA, inB, res])
+
+class F25519AddTestVectors(F25519TestVector):
     def __init__(self):
         pass
 
@@ -179,7 +196,7 @@ class F25519AddTestVectors(TestVector):
                 res = (x + y) % F25519
                 yield( (x,y,res) )
 
-class F25519SubTestVectors(TestVector):
+class F25519SubTestVectors(F25519TestVector):
     def __init__(self):
         pass
 
@@ -191,7 +208,7 @@ class F25519SubTestVectors(TestVector):
                 res = (x - y) % F25519
                 yield( (x,y,res) )
 
-class F25519MulTestVectors(TestVector):
+class F25519MulTestVectors(F25519TestVector):
     def __init__(self):
         pass
 
@@ -250,9 +267,9 @@ if __name__ == '__main__':
     #MulTestVectors().writeFile("mpimul.inc")
     #AddTestVectors().writeFile("mpiadd.inc")
     #SubTestVectors().writeFile("mpisub.inc")
-    #F25519AddTestVectors().writeFile("f25519add.inc")
-    #F25519SubTestVectors().writeFile("f25519sub.inc")
-    #F25519MulTestVectors().writeFile("f25519mul.inc")
-    import curve25519
-    Curve25519TestVectors(curve25519.curve25519).writeFile("curve25519.inc")
+    F25519AddTestVectors().writeFile("f25519add.inc")
+    F25519SubTestVectors().writeFile("f25519sub.inc")
+    F25519MulTestVectors().writeFile("f25519mul.inc")
+    #import curve25519
+    #Curve25519TestVectors(curve25519.curve25519).writeFile("curve25519.inc")
 
