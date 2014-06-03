@@ -68,7 +68,27 @@ int F25519_equal_mini(const F25519_Mini *a, const F25519_Mini *b)
 
 MCResult F25519_set_mini(F25519_Mini *res, const uint8_t *bytes, size_t len)
 {
-  // TODO  
+  int bitpos, digit;
+  F25519_setK_mini(res, 0);
+
+  if ( len > F25519MINI_MSGSIZE )
+    return MC_BAD_LENGTH;
+      
+  bitpos = digit = 0;
+  while ( len-- > 0 )
+  {
+    uint8_t val = *bytes++;
+      
+    res->digits[digit] |= ((val << bitpos) & F25519MINI_BITMASK);
+    bitpos += 8;
+    if (bitpos > F25519MINI_BITS)
+    {
+      bitpos -= F25519MINI_BITS; /* Now = no of bits in next digit, 1..8  */
+      digit += 1;
+      res->digits[digit] = val >> (8-bitpos);
+    }
+  }
+
   if (F25519_cmp_mini_(res, &F25519_P_mini_) >= 0)
     return MC_BAD_PARAMS;
   return MC_OK;
@@ -86,7 +106,28 @@ void F25519_setK_mini(F25519_Mini *res, uint32_t n)
 
 MCResult F25519_get_mini(uint8_t *bytes, size_t len, const F25519_Mini *s)
 {
-  // TODO  
-
+  int bitpos, digit;
+  
+  if ( len != F25519MINI_MSGSIZE )
+    return MC_BAD_LENGTH;
+    
+  bitpos = digit = 0;
+  while ( len-- > 0 )
+  {
+    if ( bitpos + 8 <= F25519MINI_BITS )
+    { 
+      *bytes++ = (uint8_t)((s->digits[digit] >> bitpos) & 0xFF);
+      bitpos += 8;
+    }
+    else
+    {
+      uint8_t val = (uint8_t)((s->digits[digit] >> bitpos) & 0xFF);
+      bitpos = bitpos + 8 - F25519MINI_BITS; /* Now number of bits to get from next byte */
+      digit++;
+      val |= (uint8_t)((s->digits[digit] << (8-bitpos)) & 0xFF);
+      *bytes++ = val;
+    }
+  }  
+  
   return MC_OK;
 }

@@ -36,10 +36,10 @@ def mul(x,y):
     return toNum( mul256_rs(toWords(x), toWords(y)) )
     
 def mul_reduce_approx(wS):
-    print "|wS = ", hex(toNum(wS))
     for i in range(2):
         wD = [ (wS[j+8] >> 23) | ((wS[j+9] << 6) & MASK)
                  for j in range(9) ]
+                 
         wS[8] &= 0x7fffff
         for j in range(9,18):
           wS[j] = 0

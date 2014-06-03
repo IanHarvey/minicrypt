@@ -16,31 +16,22 @@
 
 typedef uint64_t U64;
 
+#define U64_CLEAR(u) ((u) = 0)
+#define U64_SHIFT_BITS(u) ((u) >>= F25519MINI_BITS)
+#define U64_MASK(u) ((int32_t)((u) & F25519MINI_BITMASK))
+#define U64_MUL_ADD(u,i1,i2) ((u) += (U64)(i1) * (i2))
+#define U64_ADD(u,i) ((u) += (i))
+
 static void u64_sum_row( U64 *sum, const int32_t *s_up, const int32_t *s_dn, int count)
 {
   U64 acc = *sum;
   while ( count-- > 0 )
   {
-    acc += (U64)(*s_up) * (*s_dn);
+    U64_MUL_ADD(acc, *s_up, *s_dn);
     s_up ++;
     s_dn --;
   }
   *sum = acc;
-}
-
-static void u64_shift_bits( U64 *val )
-{
-  *val >>= F25519MINI_BITS;
-}
-
-static int32_t u64_mask_bits ( const U64 *src )
-{
-  return (int32_t) (*src & F25519MINI_BITMASK);
-}
-
-static void u64_clear( U64 *val )
-{
-  *val = 0;
 }
 
 #endif 
@@ -70,9 +61,7 @@ static void mul_reduce_approx(int32_t *dst, int32_t *src)
       int j;
       U64 r64;
   
-      
       // Do dst <- (src >> 255), which will be our N~
-      
       // 255 bits is 8 digits and 23 bits
       
       for (j=0; j < 9; j++)
@@ -85,15 +74,15 @@ static void mul_reduce_approx(int32_t *dst, int32_t *src)
         src[j] = 0;
         
       // Adjust: src'' += (N~ * 19), so src'' == src - (N~ * (2^255-19))
-      u64_clear(&r64);
+      U64_CLEAR(r64);
       for (j=0; j < 9; j++)
       {
-        r64 += src[j];
-        r64 += (U64)dst[j] * 19;
-        src[j] = u64_mask_bits(&r64);
-        u64_shift_bits(&r64);
+        U64_ADD(r64, src[j]);
+        U64_MUL_ADD(r64, dst[j], 19);
+        src[j] = U64_MASK(r64);
+        U64_SHIFT_BITS(r64);
       }
-      src[9] = u64_mask_bits(&r64);
+      src[9] = U64_MASK(r64);
 
       // Now src = (src - N~ * (2^255-19))
       // First time round, max value is ~ 19 * (2^255-19)
@@ -109,7 +98,7 @@ void F25519_mul3_mini(F25519_Mini *res, const F25519_Mini *s1, const F25519_Mini
   int r;
   U64 r64;
   
-  u64_clear(&r64);
+  U64_CLEAR(r64);
   
   for ( r=0; r < F25519MINI_DIGITS*2 - 1; r++ )
   {
@@ -127,11 +116,11 @@ void F25519_mul3_mini(F25519_Mini *res, const F25519_Mini *s1, const F25519_Mini
                    &s2->digits[F25519MINI_DIGITS-1],
                    2*F25519MINI_DIGITS-1-r);
      }
-     w.digits[r] = u64_mask_bits(&r64);
-     u64_shift_bits(&r64);
+     w.digits[r] = U64_MASK(r64);
+     U64_SHIFT_BITS(r64);
   }
 
-  w.digits[r] = u64_mask_bits(&r64);
+  w.digits[r] = U64_MASK(r64);
   
   mul_reduce_approx(res->digits, w.digits);
   F25519_reduce_mini_(res);
