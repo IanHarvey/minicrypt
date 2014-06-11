@@ -4,7 +4,30 @@ NDIGITS = 9
 MASK = 0x1FFFFFFF
 NBITS = 29
 
+def mul64_add( u, i1, i2 ):
+    assert(i1 >=0 and i1 <= MASK)
+    assert(i2 >=0 and i2 <= MASK)
+    lo30 = u & 0x3FFFFFFF
+    hi   = u >> 30
+    
+    mr =  (i1 & 0x7FFF) * (i2 & 0x7FFF)
+    lo30 += mr
+    mr =  (i1 & 0x7FFF)*(i2 >> 15)
+    mr += (i1 >> 15)*(i2 & 0x7FFF)
+    assert(mr < (1<<32))
+    lo30 += (mr & 0x7FFF) << 15
+    assert(lo30 < (1<<32))
+    hi   += (lo30 >> 30)
+    lo30 &= 0x3FFFFFFF
+    hi   += (mr >> 15)
+    mr   = (i1 >> 15) * (i2 >> 15)
+    hi   += mr
+    assert(hi < (1<<32))
+    return (hi<<30) + lo30
+
+
 def mul256_rs( wordX, wordY ):
+    rmax = 0
     res = [0] * (NDIGITS * 2)
     r64 = 0
     for r in range(0, NDIGITS*2-1):
@@ -17,10 +40,12 @@ def mul256_rs( wordX, wordY ):
           sY = (r-NDIGITS+1)
           count = 2*NDIGITS-1-r
         for i in range(count):
-            r64 += wordX[sX] * wordY[sY]
+            r64 = mul64_add(r64, wordX[sX], wordY[sY])
+            #r64 += wordX[sX] * wordY[sY]
             sX -= 1
             sY += 1
         res[r] = r64 & MASK
+        rmax = max(rmax, r64)
         r64 = (r64 >> NBITS)
     assert(r64 <= MASK)
     res[NDIGITS*2-1] = r64
@@ -61,7 +86,7 @@ def mul_mod(x,y):
     if res >= P25519:
       return res - P25519
     return res
-    
+   
 tstlist = [ 0, 1, 0x80000000, 0xFFFFFFFF, (1 << 64)-1, (1 << 64),
 		(1<<128)-1,
 		P25519-0x80000000,

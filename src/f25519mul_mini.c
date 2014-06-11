@@ -10,17 +10,68 @@
 #define MPIMINI_INTERNAL_API
 #include "f25519_mini.h"
 
-#define USE_64BIT
+#define USE_64BIT 0
 
-#ifdef USE_64BIT
+#if USE_64BIT
 
 typedef uint64_t U64;
 
 #define U64_CLEAR(u) ((u) = 0)
 #define U64_SHIFT_BITS(u) ((u) >>= F25519MINI_BITS)
 #define U64_MASK(u) ((int32_t)((u) & F25519MINI_BITMASK))
-#define U64_MUL_ADD(u,i1,i2) ((u) += (U64)(i1) * (i2))
 #define U64_ADD(u,i) ((u) += (i))
+#define U64_MUL_ADD(u,i1,i2) ((u) += (U64)(i1) * (i2))
+
+#else
+
+typedef struct
+{
+  /* Actual max value here is ~ 9 * (1<<29-1) * (1<<29-1)
+     i.e. 62 bits will do. This turns out to be handy! */
+  uint32_t lo30;
+  uint32_t hi;
+}
+  U64;
+
+#define U64_CLEAR(u) ((u).lo30 = (u).hi = 0)
+
+static void u64_shift_bits(U64 *u)
+{
+  u->lo30 = (u->lo30 >> 29) | ((u->hi << 1) & 0x3FFFFFFF);
+  u->hi >>= 29;
+}
+#define U64_SHIFT_BITS(u) u64_shift_bits(&(u))
+
+#define U64_MASK(u) ((int32_t)((u).lo30 & F25519MINI_BITMASK))
+
+static void u64_add(U64 *u, int32_t i)
+{
+  u->lo30 += i;
+  u->hi += (u->lo30 >> 30);
+  u->lo30 &= 0x3FFFFFFF;
+}
+#define U64_ADD(u,i) u64_add(&(u), i)
+
+static void u64_mul_add( U64 *u, int32_t i1, int32_t i2)
+{
+  /* i1 and i2 are both 29 bits. */
+  uint32_t mr;
+  
+  mr =  (i1 & 0x7FFF) * (i2 & 0x7FFF);
+  u->lo30 += mr;
+
+  mr =  (i1 & 0x7FFF)*(i2 >> 15);
+  mr += (i1 >> 15)*(i2 & 0x7FFF);
+  u->lo30 += (mr & 0x7FFF) << 15;
+  u->hi += (u->lo30 >> 30);
+  u->lo30 &= 0x3FFFFFFF;
+  u->hi += (mr >> 15);
+  mr   = (i1 >> 15) * (i2 >> 15);
+  u->hi += mr;
+}
+#define U64_MUL_ADD(u,i1,i2) u64_mul_add(&(u),i1,i2)
+
+#endif 
 
 static void u64_sum_row( U64 *sum, const int32_t *s_up, const int32_t *s_dn, int count)
 {
@@ -34,7 +85,6 @@ static void u64_sum_row( U64 *sum, const int32_t *s_up, const int32_t *s_dn, int
   *sum = acc;
 }
 
-#endif 
 
 typedef struct
 {
