@@ -46,28 +46,30 @@ static void u64_shift_bits(U64 *u)
 
 static void u64_add(U64 *u, int32_t i)
 {
-  u->lo30 += i;
-  u->hi += (u->lo30 >> 30);
-  u->lo30 &= 0x3FFFFFFF;
+  uint32_t lo30 = u->lo30;
+  lo30 += i;
+  u->lo30 = (lo30 & 0x3FFFFFFF);
+  u->hi += (lo30 >> 30);
 }
 #define U64_ADD(u,i) u64_add(&(u), i)
 
 static void u64_mul_add( U64 *u, int32_t i1, int32_t i2)
 {
   /* i1 and i2 are both 29 bits. */
-  uint32_t mr;
+  uint32_t lo30 = u->lo30;
+  uint32_t mr, hi;
   
-  mr =  (i1 & 0x7FFF) * (i2 & 0x7FFF);
-  u->lo30 += mr;
+  lo30 += (i1 & 0x7FFF) * (i2 & 0x7FFF);
 
-  mr =  (i1 & 0x7FFF)*(i2 >> 15);
-  mr += (i1 >> 15)*(i2 & 0x7FFF);
-  u->lo30 += (mr & 0x7FFF) << 15;
-  u->hi += (u->lo30 >> 30);
-  u->lo30 &= 0x3FFFFFFF;
-  u->hi += (mr >> 15);
-  mr   = (i1 >> 15) * (i2 >> 15);
-  u->hi += mr;
+  mr = (i1 & 0x7FFF)*(i2 >> 15) + (i1 >> 15)*(i2 & 0x7FFF);
+  lo30 += (mr & 0x7FFF) << 15;
+  u->lo30 = lo30 & 0x3FFFFFFF;
+  
+  hi = u->hi;
+  hi += (lo30 >> 30);
+  hi += (mr >> 15);
+  hi += (i1 >> 15) * (i2 >> 15);
+  u->hi = hi;
 }
 #define U64_MUL_ADD(u,i1,i2) u64_mul_add(&(u),i1,i2)
 
